@@ -1,0 +1,44 @@
+#!/usr/bin/env ruby
+# -*- mode: ruby; coding: utf-8 -*-
+
+require 'csv'
+require 'date'
+
+account = '資産:流動資産:電子マネー:ICOCA'
+accounts = {
+  チャージ: '資産:流動資産:現金:JPY',
+  運賃支払: '費用:交通費',
+  バス等運賃支払: '費用:交通費',
+  不明: '不明-JPY'
+}
+start_date = Date.parse('2015-02-05')
+
+puts <<QIF
+!Account
+N#{account}
+^
+QIF
+
+puts <<QIF
+!Type:Cash
+QIF
+
+csv = CSV.read(ARGV[0], headers: true)
+csv.each do |row|
+  no = row['no']
+  sign = row['type'] =~ /\Aチャージ\s/ ? +1 : -1
+  value = row['value'].to_i * sign
+  date = Date.strptime(row['date'], '%Y/%m/%d')
+  info = row['info']
+  type = row['type'] =~ /\A(.+)\s/ && $1 || '不明'
+
+  puts <<QIF if date >= start_date
+N#{no}
+D#{date.strftime('%Y/%m/%d')}
+M#{type}
+S#{accounts[type.to_sym] || accounts[:不明]}
+E#{info}
+$#{value}
+^
+QIF
+end
