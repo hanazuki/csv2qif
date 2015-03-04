@@ -3,42 +3,46 @@
 
 require 'csv'
 require 'date'
+require 'optparse'
+require 'pathname'
+
+params = ARGV.getopts('', 'start:0')
 
 account = '資産:流動資産:電子マネー:ICOCA'
 accounts = {
-  チャージ: '資産:流動資産:現金:JPY',
-  運賃支払: '費用:交通費',
-  バス等運賃支払: '費用:交通費',
-  不明: '不明-JPY'
+  'チャージ' => '資産:流動資産:現金:JPY',
+  '運賃支払' => '費用:交通費',
+  'バス等運賃支払' => '費用:交通費',
+  nil => '不明-JPY'
 }
-start_date = Date.parse('2015-02-05')
+start_no = params['start'].to_i
 
-puts <<QIF
+ARGV.map(&method(:Pathname)).each do |inpath|
+  open(inpath.sub_ext('.qif'), 'w') do |f|
+    f.puts <<-QIF
 !Account
 N#{account}
 ^
-QIF
-
-puts <<QIF
 !Type:Cash
-QIF
+    QIF
 
-csv = CSV.read(ARGV[0], headers: true)
-csv.each do |row|
-  no = row['no']
-  sign = row['type'] =~ /\Aチャージ\s/ ? +1 : -1
-  value = row['value'].to_i * sign
-  date = Date.strptime(row['date'], '%Y/%m/%d')
-  info = row['info']
-  type = row['type'] =~ /\A(.+)\s/ && $1 || '不明'
+    CSV.read(inpath, headers: true).each do |row|
+      no = row['no'].to_i
+      date = Date.strptime(row['date'], '%Y/%m/%d')
+      info = row['info']
+      type = row['type'] =~ /\A(.+)\s/ && $1
+      sign = type == 'チャージ' ? +1 : -1
+      value = row['value'].to_i * sign
 
-  puts <<QIF if date >= start_date
+      f.puts <<-QIF if !start_no || no >= start_no
 N#{no}
 D#{date.strftime('%Y/%m/%d')}
 M#{type}
-S#{accounts[type.to_sym] || accounts[:不明]}
+S#{accounts[type] || accounts[nil]}
 E#{info}
 $#{value}
 ^
-QIF
+      QIF
+    end
+  end
 end
