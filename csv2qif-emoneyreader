@@ -8,7 +8,7 @@ require 'pathname'
 
 params = ARGV.getopts('', 'start:0')
 
-account = '資産:流動資産:電子マネー:ICOCA'
+account = '資産:流動資産:電子マネー'
 accounts = {
   'チャージ' => '資産:流動資産:現金:JPY',
   '運賃支払' => '費用:交通費',
@@ -18,10 +18,11 @@ accounts = {
 start_no = params['start'].to_i
 
 ARGV.map(&method(:Pathname)).each do |inpath|
+  card_name = inpath.basename.to_s.gsub(/_.*/, '')
   open(inpath.sub_ext('.qif'), 'w') do |f|
     f.puts <<-QIF
 !Account
-N#{account}
+N#{account}:#{card_name}
 ^
 !Type:Cash
     QIF
